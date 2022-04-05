@@ -11,7 +11,7 @@ import {initMenu} from "@/utils/menus";
 
 Vue.config.productionTip = false
 Vue.use(VueRouter)
-Vue.use(ElementUI);
+Vue.use(ElementUI, {size: 'small'});
 
 //请求比较常用，使用插件的方式放到vue.prototype中
 Vue.prototype.postRequest = postRequest
