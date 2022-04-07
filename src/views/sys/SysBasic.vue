@@ -32,7 +32,7 @@ export default {
   data() {
     return {
       //默认激活那个标签
-      activeName: 'PermissMana'
+      activeName: 'DepMana'
     }
   },
   components: {

@@ -1,24 +1,181 @@
 <template>
-<div>
-  <h1>部门管理</h1>
-  <table border="1">
-    <tr>
-      <td>姓名</td>
-      <td>地址</td>
-    </tr>
-    <tr>
-      <td>张三</td>
-      <td>上海</td>
-    </tr>
-  </table></div>
+  <div style="width: 500px">
+    <el-input
+        placeholder="输入部门名称进行搜索..."
+        prefix-icon="el-icon-search"
+        v-model="filterText">
+    </el-input>
+    <el-tree
+        :data="deps"
+        :props="defaultProps"
+        :filter-node-method="filterNode"
+        ref="tree">
+      <span class="custom-tree-node" slot-scope="{ node, data }"
+            style="display: flex; justify-content: space-between; width: 100%">
+        <span>{{ data.name }}</span>
+        <span>
+          <el-button
+              type="primary"
+              size="mini"
+              class="depBtn"
+              @click.stop="() => showAddDep(data)">
+            添加部门
+          </el-button>
+          <el-button
+              class="depBtn"
+              type="danger"
+              size="mini"
+              @click.stop="() => deleteDep(data)">
+            删除部门
+          </el-button>
+        </span>
+      </span>
+    </el-tree>
+    <el-dialog
+        title="添加部门"
+        :visible.sync="dialogVisible"
+        width="30%">
+      <div>
+        <table>
+          <tr>
+            <td>
+              <el-tag>上级部门</el-tag>
+            </td>
+            <td>
+              {{ pname }}
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <el-tag>部门名称</el-tag>
+            </td>
+            <td>
+              <el-input v-model="dep.name" placeholder="请输入部门名称..."></el-input>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="doAddDep">确 定</el-button>
+      </span>
+    </el-dialog>
+  </div>
 </template>
 
 <script>
 export default {
-  name: "DepMana"
+  name: "DepMana",
+  data() {
+    return {
+      filterText: '',
+      deps: [],
+      defaultProps: {
+        children: 'children',
+        label: 'name'
+      },
+      dialogVisible: false,
+      dep: {
+        name: '',
+        parentId: -1
+      },
+      pname: ''
+    }
+  },
+  methods: {
+    addDep2Deps(deps, dep) {
+      return deps.some((item) => {
+        if (item.id === dep.parentId) {
+          item.children.push(dep);
+          item.isParent = true
+          return true
+        } else {
+          return this.addDep2Deps(item.children, dep)
+        }
+      });
+    },
+    doAddDep() {
+      this.postRequest('/system/basic/department/', this.dep).then(resp => {
+        if (resp) {
+          this.addDep2Deps(this.deps, resp.obj)
+          this.dialogVisible = false
+          this.initDep()
+        }
+      });
+    },
+    initDep() {
+      this.dep = {
+        name: '',
+        parentId: -1
+      }
+      this.pname = ''
+    },
+    showAddDep(data) {
+      this.dep.parentId = data.id
+      this.pname = data.name;
+      this.dialogVisible = true;
+    },
+    removeDepFromDeps(p, deps, id) {
+      for (let i = 0; i < deps.length; i++) {
+        const d = deps[i]
+        if (d.id === id) {
+          deps.splice(i, 1);
+          if (deps.length === 0) {
+            p.isParent = false
+          }
+          return;
+        } else {
+          this.removeDepFromDeps(d, d.children, id)
+        }
+      }
+    },
+    deleteDep(data) {
+      if (!data.isParent) {
+        this.$confirm(`此操作将永久删除${data.name}部门, 是否继续?`, '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          this.deleteRequest(`/system/basic/department/${data.id}`).then(resp => {
+            if (resp) {
+              this.removeDepFromDeps(this.deps[0], this.deps, data.id)
+            }
+          });
+        }).catch(() => {
+          this.$message({
+            type: 'info',
+            message: '已取消删除'
+          });
+        });
+      } else {
+        this.$message.error('父部门删除失败')
+      }
+    },
+    filterNode(value, data) {
+      if (!value) return true;
+      return data.name.indexOf(value) !== -1;
+    },
+    initDeps() {
+      this.getRequest('/system/basic/department/').then(resp => {
+        if (resp) {
+          this.deps = resp
+        }
+      });
+    }
+  },
+  watch: {
+    filterText(val) {
+      this.$refs.tree.filter(val);
+    }
+  },
+  mounted() {
+    this.initDeps()
+  }
 }
 </script>
 
 <style scoped>
-
+.depBtn {
+  padding: 2px;
+}
 </style>
